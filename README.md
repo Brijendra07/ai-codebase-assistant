@@ -101,6 +101,10 @@ If `.env` is missing, the app still works in fallback answer mode.
 - `POST /repos/embed`
 - `POST /query/search`
 - `POST /query/ask`
+- `POST /query/explain-flow`
+- `POST /query/compare-files`
+- `POST /query/trace-symbol`
+- `POST /query/cleanup-candidates`
 - `POST /query/compare-retrieval`
 - `POST /eval/run`
 

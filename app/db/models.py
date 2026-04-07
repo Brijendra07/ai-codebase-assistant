@@ -177,3 +177,83 @@ class AskResponse(BaseModel):
     generation_latency_ms: float
     latency_ms: float
     citations: list[CitationRecord]
+
+
+class ExplainFlowRequest(BaseModel):
+    repo_path: str = Field(..., description="Absolute or relative path to a local repository")
+    question: str = Field(..., min_length=1, description="Flow-oriented question such as request flow or feature flow")
+    top_k: int = Field(5, ge=1, le=20, description="Maximum number of retrieved chunks to use")
+    language: str | None = Field(None, description="Optional language filter like python or javascript")
+    chunk_types: list[str] | None = Field(None, description="Optional chunk type filters like function, class, or block")
+    file_path_contains: str | None = Field(None, description="Optional file path substring filter")
+
+
+class ToolStep(BaseModel):
+    tool_name: str
+    description: str
+    output_summary: str
+
+
+class ExplainFlowResponse(BaseModel):
+    repo_name: str
+    repo_path: str
+    question: str
+    flow_summary: str
+    answer_mode: str
+    retrieval_settings: RetrievalSettings
+    retrieval_latency_ms: float
+    generation_latency_ms: float
+    latency_ms: float
+    tool_steps: list[ToolStep]
+    citations: list[CitationRecord]
+
+
+class CompareFilesRequest(BaseModel):
+    repo_path: str = Field(..., description="Absolute or relative path to a local repository")
+    file_path_a: str = Field(..., description="First repository-relative file path")
+    file_path_b: str = Field(..., description="Second repository-relative file path")
+
+
+class CompareFilesResponse(BaseModel):
+    repo_name: str
+    repo_path: str
+    file_path_a: str
+    file_path_b: str
+    comparison_summary: str
+    answer_mode: str
+    generation_latency_ms: float
+    latency_ms: float
+    tool_steps: list[ToolStep]
+    citations: list[CitationRecord]
+
+
+class TraceSymbolRequest(BaseModel):
+    repo_path: str = Field(..., description="Absolute or relative path to a local repository")
+    symbol: str = Field(..., min_length=1, description="Symbol name to trace across the repository")
+    top_k: int = Field(10, ge=1, le=50, description="Maximum number of symbol matches to return")
+
+
+class TraceSymbolResponse(BaseModel):
+    repo_name: str
+    repo_path: str
+    symbol: str
+    summary: str
+    answer_mode: str
+    latency_ms: float
+    tool_steps: list[ToolStep]
+    citations: list[CitationRecord]
+
+
+class CleanupCandidatesRequest(BaseModel):
+    repo_path: str = Field(..., description="Absolute or relative path to a local repository")
+    top_k: int = Field(10, ge=1, le=50, description="Maximum number of cleanup candidates to return")
+
+
+class CleanupCandidatesResponse(BaseModel):
+    repo_name: str
+    repo_path: str
+    summary: str
+    answer_mode: str
+    latency_ms: float
+    tool_steps: list[ToolStep]
+    citations: list[CitationRecord]
