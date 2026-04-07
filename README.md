@@ -208,5 +208,19 @@ The project currently supports:
 - Phase 1: complete
 - Phase 2: complete
 - Phase 3: complete
-- Phase 4: in good shape
-- Phase 5: in progress
+- Phase 4: complete
+- Phase 5: complete
+- Phase 6: planned
+
+This means the current project scope is portfolio-ready and covers the roadmap end to end.
+
+## Next Extension
+
+The next planned extension is a lightweight Gradio UI for:
+
+- asking repository questions in a more natural interface
+- running explain-flow, compare-files, trace-symbol, and cleanup workflows visually
+- reviewing eval history and outputs more easily
+- making demos and manual testing faster than Swagger alone
+
+This UI phase is intended to strengthen testing, demos, screenshots, and overall portfolio presentation without changing the completed backend roadmap phases.
