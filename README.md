@@ -116,6 +116,18 @@ Then open:
 - `http://127.0.0.1:8000/health`
 - `http://127.0.0.1:8000/docs`
 
+## Gradio Demo
+
+To launch the Gradio UI:
+
+```bash
+python -m app.gradio_ui
+```
+
+Then open:
+
+- `http://127.0.0.1:7860`
+
 ## LLM Setup
 
 To enable Vertex AI answers for `POST /query/ask`, create a `.env` file in the project root with:
