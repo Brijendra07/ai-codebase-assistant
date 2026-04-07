@@ -13,4 +13,6 @@ async def healthcheck() -> dict[str, str]:
         "app": settings.app_name,
         "version": settings.app_version,
         "environment": settings.environment,
+        "phase": "phase-5",
+        "readiness": "ready",
     }

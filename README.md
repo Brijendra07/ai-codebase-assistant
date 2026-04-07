@@ -2,19 +2,11 @@
 
 AI Codebase Assistant is a backend-first Generative AI project for understanding software repositories with retrieval-augmented generation.
 
-## Phase 0 Scope
+## Problem Statement
 
-This starter sets up:
+Developers spend a lot of time searching files, tracing flows, and understanding unfamiliar repositories. Plain chat assistants can help, but they are often opaque and hard to evaluate.
 
-- FastAPI backend skeleton
-- health endpoint
-- basic config management
-- structured logging
-- placeholder package layout for ingestion, chunking, embeddings, retrieval, LLM, agents, eval, and DB layers
-
-## Project Goal
-
-Build a production-style AI system that can:
+This project solves that by building a grounded code intelligence system that can:
 
 - ingest a repository
 - chunk code into meaningful units
@@ -23,7 +15,23 @@ Build a production-style AI system that can:
 - answer developer questions with grounded citations
 - support agentic workflows for code exploration
 
-## Starter Layout
+## Architecture
+
+```text
+User / API Client
+  ->
+FastAPI Backend
+  -> Repository Ingestion
+  -> Code Parsing and Chunking
+  -> Embedding Generation
+  -> FAISS Vector Index
+  -> Metadata-Aware Retrieval
+  -> LLM Answer Generation
+  -> Agent Workflows
+  -> Evaluation and Observability
+```
+
+## Project Layout
 
 ```text
 app/
@@ -45,7 +53,37 @@ requirements.txt
 
 Personal planning and CV files are kept in `local_docs/`, which is gitignored.
 
-## Local Run
+## Features
+
+- local repository ingestion with filtering rules
+- Python-aware chunking plus line-based fallback chunking
+- embeddings using `sentence-transformers`
+- vector indexing with FAISS
+- metadata-aware retrieval and lightweight hybrid reranking
+- grounded Q&A with citations
+- Vertex AI / Gemini-backed answer generation with fallback mode
+- agent workflows:
+  - explain flow
+  - compare files
+  - trace symbol references
+  - cleanup candidate detection
+- evaluation support:
+  - hit@k
+  - stored eval history
+  - answer feedback
+  - retrieval and generation latency tracking
+
+## Tech Stack
+
+- Python
+- FastAPI
+- sentence-transformers
+- FAISS
+- Google Vertex AI / Gemini
+- Pydantic
+- Docker
+
+## Local Setup
 
 1. Create and activate a virtual environment.
 2. Install dependencies:
@@ -61,6 +99,19 @@ uvicorn app.main:app --reload
 ```
 
 4. Open:
+
+- `http://127.0.0.1:8000/health`
+- `http://127.0.0.1:8000/docs`
+
+## Docker Run
+
+Build and run with Docker:
+
+```bash
+docker compose up --build
+```
+
+Then open:
 
 - `http://127.0.0.1:8000/health`
 - `http://127.0.0.1:8000/docs`
@@ -85,13 +136,37 @@ GEMINI_API_KEY=your_gemini_api_key_here
 
 If `.env` is missing, the app still works in fallback answer mode.
 
-## Next Steps
+## Sample Workflow
 
-- add repository ingestion
-- add code chunking
-- add embedding pipeline
-- add vector search
-- add query endpoint with citations
+1. Embed the repository:
+
+```json
+{
+  "repo_path": "D:\\AI Codebase Assistant"
+}
+```
+
+2. Ask a grounded question:
+
+```json
+{
+  "repo_path": "D:\\AI Codebase Assistant",
+  "question": "Where is repository ingestion implemented?",
+  "top_k": 5,
+  "language": "python",
+  "chunk_types": ["function", "class"],
+  "file_path_contains": "ingestion"
+}
+```
+
+3. Run evaluation:
+
+```json
+{
+  "repo_path": "D:\\AI Codebase Assistant",
+  "top_k": 5
+}
+```
 
 ## Current API
 
@@ -115,3 +190,23 @@ If `.env` is missing, the app still works in fallback answer mode.
 - `language`
 - `chunk_types`
 - `file_path_contains`
+
+## Evaluation and Observability
+
+The project currently supports:
+
+- retrieval hit@k evaluation
+- persisted eval runs
+- answer feedback capture
+- retrieval latency tracking
+- generation latency tracking
+- comparison of raw vs filtered vs reranked retrieval
+
+## Roadmap Status
+
+- Phase 0: complete
+- Phase 1: complete
+- Phase 2: complete
+- Phase 3: complete
+- Phase 4: in good shape
+- Phase 5: in progress
