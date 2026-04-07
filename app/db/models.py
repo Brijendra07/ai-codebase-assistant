@@ -64,6 +64,9 @@ class SemanticSearchRequest(BaseModel):
     repo_path: str = Field(..., description="Absolute or relative path to a local repository")
     query: str = Field(..., min_length=1, description="Natural language search query")
     top_k: int = Field(5, ge=1, le=20, description="Maximum number of results to return")
+    language: str | None = Field(None, description="Optional language filter like python or javascript")
+    chunk_types: list[str] | None = Field(None, description="Optional chunk type filters like function, class, or block")
+    file_path_contains: str | None = Field(None, description="Optional file path substring filter")
 
 
 class SearchResult(BaseModel):
@@ -71,13 +74,78 @@ class SearchResult(BaseModel):
     chunk: ChunkRecord
 
 
+class RetrievalSettings(BaseModel):
+    top_k: int
+    language: str | None = None
+    chunk_types: list[str] | None = None
+    file_path_contains: str | None = None
+
+
 class SemanticSearchResponse(BaseModel):
     repo_name: str
     repo_path: str
     query: str
     top_k: int
+    retrieval_settings: RetrievalSettings
+    latency_ms: float
     total_results: int
     results: list[SearchResult]
+
+
+class RetrievalComparisonStage(BaseModel):
+    stage: str
+    total_results: int
+    results: list[SearchResult]
+
+
+class RetrievalComparisonResponse(BaseModel):
+    repo_name: str
+    repo_path: str
+    query: str
+    top_k: int
+    retrieval_settings: RetrievalSettings
+    latency_ms: float
+    stages: list[RetrievalComparisonStage]
+
+
+class EvalCase(BaseModel):
+    name: str
+    query: str
+    expected_file_paths: list[str]
+    language: str | None = None
+    chunk_types: list[str] | None = None
+    file_path_contains: str | None = None
+
+
+class EvalRunRequest(BaseModel):
+    repo_path: str = Field(..., description="Absolute or relative path to a local repository")
+    top_k: int = Field(5, ge=1, le=20, description="Top-k cutoff for retrieval evaluation")
+    cases: list[EvalCase] | None = Field(
+        None,
+        description="Optional custom eval cases. If omitted, built-in sample cases are used.",
+    )
+
+
+class EvalCaseResult(BaseModel):
+    name: str
+    query: str
+    expected_file_paths: list[str]
+    retrieved_file_paths: list[str]
+    hit: bool
+    hit_at_k: float
+    retrieval_latency_ms: float
+    latency_ms: float
+
+
+class EvalRunResponse(BaseModel):
+    repo_name: str
+    repo_path: str
+    top_k: int
+    latency_ms: float
+    total_cases: int
+    hits: int
+    hit_rate: float
+    results: list[EvalCaseResult]
 
 
 class CitationRecord(BaseModel):
@@ -92,6 +160,9 @@ class AskRequest(BaseModel):
     repo_path: str = Field(..., description="Absolute or relative path to a local repository")
     question: str = Field(..., min_length=1, description="Natural language repository question")
     top_k: int = Field(5, ge=1, le=20, description="Maximum number of retrieved chunks to use")
+    language: str | None = Field(None, description="Optional language filter like python or javascript")
+    chunk_types: list[str] | None = Field(None, description="Optional chunk type filters like function, class, or block")
+    file_path_contains: str | None = Field(None, description="Optional file path substring filter")
 
 
 class AskResponse(BaseModel):
@@ -101,4 +172,8 @@ class AskResponse(BaseModel):
     answer: str
     grounded: bool
     answer_mode: str
+    retrieval_settings: RetrievalSettings
+    retrieval_latency_ms: float
+    generation_latency_ms: float
+    latency_ms: float
     citations: list[CitationRecord]

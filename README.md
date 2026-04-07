@@ -101,3 +101,11 @@ If `.env` is missing, the app still works in fallback answer mode.
 - `POST /repos/embed`
 - `POST /query/search`
 - `POST /query/ask`
+- `POST /query/compare-retrieval`
+- `POST /eval/run`
+
+`POST /query/search` and `POST /query/ask` also support optional metadata-aware filters:
+
+- `language`
+- `chunk_types`
+- `file_path_contains`

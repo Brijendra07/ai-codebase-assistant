@@ -2,6 +2,7 @@ from fastapi import FastAPI
 
 from app.api.routes_chunking import router as chunking_router
 from app.api.routes_embeddings import router as embeddings_router
+from app.api.routes_eval import router as eval_router
 from app.api.routes_health import router as health_router
 from app.api.routes_ingest import router as ingest_router
 from app.api.routes_query import router as query_router
@@ -23,6 +24,7 @@ app.include_router(ingest_router)
 app.include_router(chunking_router)
 app.include_router(embeddings_router)
 app.include_router(query_router)
+app.include_router(eval_router)
 
 
 @app.get("/", tags=["root"])

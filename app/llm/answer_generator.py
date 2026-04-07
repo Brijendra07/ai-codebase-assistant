@@ -1,11 +1,12 @@
 """Generate grounded answers from retrieved context."""
 
 import logging
+import time
 from urllib.parse import urlencode
 
 import httpx
 from app.core.config import settings
-from app.db.models import AskResponse, CitationRecord, SearchResult
+from app.db.models import AskResponse, CitationRecord, RetrievalSettings, SearchResult
 from app.llm.prompts import build_grounded_answer_prompt
 
 try:
@@ -21,7 +22,10 @@ def generate_grounded_answer(
     repo_path: str,
     question: str,
     results: list[SearchResult],
+    retrieval_settings: RetrievalSettings,
+    retrieval_latency_ms: float,
 ) -> AskResponse:
+    started_at = time.perf_counter()
     citations = [
         CitationRecord(
             file_path=result.chunk.file_path,
@@ -41,6 +45,10 @@ def generate_grounded_answer(
             answer="I could not find relevant repository context for this question.",
             grounded=False,
             answer_mode="no-context",
+            retrieval_settings=retrieval_settings,
+            retrieval_latency_ms=retrieval_latency_ms,
+            generation_latency_ms=_elapsed_ms(started_at),
+            latency_ms=round(retrieval_latency_ms + _elapsed_ms(started_at), 2),
             citations=[],
         )
 
@@ -54,6 +62,10 @@ def generate_grounded_answer(
                 answer=answer,
                 grounded=True,
                 answer_mode="llm",
+                retrieval_settings=retrieval_settings,
+                retrieval_latency_ms=retrieval_latency_ms,
+                generation_latency_ms=_elapsed_ms(started_at),
+                latency_ms=round(retrieval_latency_ms + _elapsed_ms(started_at), 2),
                 citations=citations,
             )
         except Exception as exc:  # pragma: no cover - external API behavior
@@ -69,6 +81,10 @@ def generate_grounded_answer(
                 answer=answer,
                 grounded=True,
                 answer_mode="llm",
+                retrieval_settings=retrieval_settings,
+                retrieval_latency_ms=retrieval_latency_ms,
+                generation_latency_ms=_elapsed_ms(started_at),
+                latency_ms=round(retrieval_latency_ms + _elapsed_ms(started_at), 2),
                 citations=citations,
             )
         except Exception as exc:  # pragma: no cover - external API behavior
@@ -81,6 +97,10 @@ def generate_grounded_answer(
         answer=_generate_fallback_answer(question, results),
         grounded=True,
         answer_mode="fallback",
+        retrieval_settings=retrieval_settings,
+        retrieval_latency_ms=retrieval_latency_ms,
+        generation_latency_ms=_elapsed_ms(started_at),
+        latency_ms=round(retrieval_latency_ms + _elapsed_ms(started_at), 2),
         citations=citations,
     )
 
@@ -172,3 +192,7 @@ def _summarize_chunk(content: str, max_length: int = 220) -> str:
     if len(compact) <= max_length:
         return compact
     return compact[: max_length - 3] + "..."
+
+
+def _elapsed_ms(started_at: float) -> float:
+    return round((time.perf_counter() - started_at) * 1000, 2)

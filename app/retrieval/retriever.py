@@ -1,14 +1,19 @@
 """Semantic retrieval over indexed code chunks."""
 
+import time
 from pathlib import Path
 
 from fastapi import HTTPException, status
 
 from app.core.config import settings
+from app.core.logger import get_logger
 from app.chunking.code_chunker import chunk_file
 from app.db.models import (
     AskResponse,
     RepositoryEmbeddingResponse,
+    RetrievalSettings,
+    RetrievalComparisonResponse,
+    RetrievalComparisonStage,
     SearchResult,
     SemanticSearchResponse,
 )
@@ -21,7 +26,9 @@ from app.embeddings.vector_store import (
 from app.ingestion.parser import parse_file
 from app.ingestion.repo_loader import list_repository_files
 from app.llm.answer_generator import generate_grounded_answer
-from app.retrieval.hybrid_search import rerank_results
+from app.retrieval.hybrid_search import apply_metadata_filters, rerank_results
+
+logger = get_logger(__name__)
 
 
 def index_repository_embeddings(repo_path: str) -> RepositoryEmbeddingResponse:
@@ -64,14 +71,31 @@ def index_repository_embeddings(repo_path: str) -> RepositoryEmbeddingResponse:
     )
 
 
-def semantic_search(repo_path: str, query: str, top_k: int) -> SemanticSearchResponse:
-    stored_index, matches = _retrieve_matches(repo_path, query, top_k)
+def semantic_search(
+    repo_path: str,
+    query: str,
+    top_k: int,
+    language: str | None = None,
+    chunk_types: list[str] | None = None,
+    file_path_contains: str | None = None,
+) -> SemanticSearchResponse:
+    started_at = time.perf_counter()
+    stored_index, matches = _retrieve_matches(
+        repo_path,
+        query,
+        top_k,
+        language=language,
+        chunk_types=chunk_types,
+        file_path_contains=file_path_contains,
+    )
 
     return SemanticSearchResponse(
         repo_name=stored_index.repo_name,
         repo_path=stored_index.repo_path,
         query=query,
         top_k=top_k,
+        retrieval_settings=_build_retrieval_settings(top_k, language, chunk_types, file_path_contains),
+        latency_ms=_elapsed_ms(started_at),
         total_results=len(matches),
         results=[
             SearchResult(score=score, chunk=chunk)
@@ -80,18 +104,110 @@ def semantic_search(repo_path: str, query: str, top_k: int) -> SemanticSearchRes
     )
 
 
-def answer_repository_question(repo_path: str, question: str, top_k: int) -> AskResponse:
-    stored_index, matches = _retrieve_matches(repo_path, question, top_k)
+def answer_repository_question(
+    repo_path: str,
+    question: str,
+    top_k: int,
+    language: str | None = None,
+    chunk_types: list[str] | None = None,
+    file_path_contains: str | None = None,
+) -> AskResponse:
+    retrieval_started_at = time.perf_counter()
+    stored_index, matches = _retrieve_matches(
+        repo_path,
+        question,
+        top_k,
+        language=language,
+        chunk_types=chunk_types,
+        file_path_contains=file_path_contains,
+    )
+    retrieval_latency_ms = _elapsed_ms(retrieval_started_at)
     search_results = [SearchResult(score=score, chunk=chunk) for chunk, score in matches]
     return generate_grounded_answer(
         repo_name=stored_index.repo_name,
         repo_path=stored_index.repo_path,
         question=question,
         results=search_results,
+        retrieval_settings=_build_retrieval_settings(top_k, language, chunk_types, file_path_contains),
+        retrieval_latency_ms=retrieval_latency_ms,
     )
 
 
-def _retrieve_matches(repo_path: str, query: str, top_k: int):
+def compare_retrieval_strategies(
+    repo_path: str,
+    query: str,
+    top_k: int,
+    language: str | None = None,
+    chunk_types: list[str] | None = None,
+    file_path_contains: str | None = None,
+) -> RetrievalComparisonResponse:
+    started_at = time.perf_counter()
+    stored_index = _get_stored_index(repo_path)
+    query_vector = embed_texts([query])
+    candidate_count = min(max(top_k * 8, top_k), len(stored_index.chunks))
+
+    raw_matches = search_vector_index(stored_index, query_vector, candidate_count)
+    filtered_matches = apply_metadata_filters(
+        raw_matches,
+        language=language,
+        chunk_types=chunk_types,
+        file_path_contains=file_path_contains,
+    )
+    reranked_matches = rerank_results(
+        query,
+        filtered_matches if filtered_matches else raw_matches,
+        top_k,
+    )
+
+    return RetrievalComparisonResponse(
+        repo_name=stored_index.repo_name,
+        repo_path=stored_index.repo_path,
+        query=query,
+        top_k=top_k,
+        retrieval_settings=_build_retrieval_settings(top_k, language, chunk_types, file_path_contains),
+        latency_ms=_elapsed_ms(started_at),
+        stages=[
+            _build_stage("semantic_raw", raw_matches[:top_k]),
+            _build_stage("metadata_filtered", filtered_matches[:top_k]),
+            _build_stage("reranked_final", reranked_matches),
+        ],
+    )
+
+
+def _retrieve_matches(
+    repo_path: str,
+    query: str,
+    top_k: int,
+    language: str | None = None,
+    chunk_types: list[str] | None = None,
+    file_path_contains: str | None = None,
+):
+    stored_index = _get_stored_index(repo_path)
+    query_vector = embed_texts([query])
+    candidate_count = min(max(top_k * 8, top_k), len(stored_index.chunks))
+    matches = search_vector_index(stored_index, query_vector, candidate_count)
+    matches = apply_metadata_filters(
+        matches,
+        language=language,
+        chunk_types=chunk_types,
+        file_path_contains=file_path_contains,
+    )
+    if not matches:
+        matches = search_vector_index(stored_index, query_vector, candidate_count)
+    matches = rerank_results(query, matches, top_k)
+    logger.info(
+        "retrieval_run query=%r top_k=%s language=%s chunk_types=%s file_path_contains=%s results=%s",
+        query,
+        top_k,
+        language,
+        chunk_types,
+        file_path_contains,
+        len(matches),
+    )
+    return stored_index, matches
+
+
+def _get_stored_index(repo_path: str):
     root = Path(repo_path).expanduser().resolve()
     stored_index = get_vector_index(str(root))
 
@@ -101,8 +217,31 @@ def _retrieve_matches(repo_path: str, query: str, top_k: int):
             detail="Repository embeddings not found. Run POST /repos/embed first.",
         )
 
-    query_vector = embed_texts([query])
-    candidate_count = min(max(top_k * 8, top_k), len(stored_index.chunks))
-    matches = search_vector_index(stored_index, query_vector, candidate_count)
-    matches = rerank_results(query, matches, top_k)
-    return stored_index, matches
+    return stored_index
+
+
+def _build_stage(stage: str, matches: list[tuple]) -> RetrievalComparisonStage:
+    results = [SearchResult(score=score, chunk=chunk) for chunk, score in matches]
+    return RetrievalComparisonStage(
+        stage=stage,
+        total_results=len(results),
+        results=results,
+    )
+
+
+def _build_retrieval_settings(
+    top_k: int,
+    language: str | None,
+    chunk_types: list[str] | None,
+    file_path_contains: str | None,
+) -> RetrievalSettings:
+    return RetrievalSettings(
+        top_k=top_k,
+        language=language,
+        chunk_types=chunk_types,
+        file_path_contains=file_path_contains,
+    )
+
+
+def _elapsed_ms(started_at: float) -> float:
+    return round((time.perf_counter() - started_at) * 1000, 2)
