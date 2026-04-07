@@ -138,6 +138,8 @@ class EvalCaseResult(BaseModel):
 
 
 class EvalRunResponse(BaseModel):
+    run_id: str | None = None
+    created_at: datetime | None = None
     repo_name: str
     repo_path: str
     top_k: int
@@ -146,6 +148,25 @@ class EvalRunResponse(BaseModel):
     hits: int
     hit_rate: float
     results: list[EvalCaseResult]
+
+
+class EvalResultsResponse(BaseModel):
+    total_runs: int
+    results: list[EvalRunResponse]
+
+
+class AnswerFeedbackRequest(BaseModel):
+    repo_path: str = Field(..., description="Absolute or relative path to a local repository")
+    question: str = Field(..., min_length=1, description="Question that was asked")
+    answer_mode: str = Field(..., description="Answer mode such as llm, fallback, or tool")
+    rating: int = Field(..., ge=1, le=5, description="Feedback rating from 1 to 5")
+    comments: str | None = Field(None, description="Optional user comments")
+
+
+class AnswerFeedbackResponse(BaseModel):
+    feedback_id: str
+    created_at: datetime
+    status: str
 
 
 class CitationRecord(BaseModel):

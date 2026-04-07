@@ -1,7 +1,13 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
-from app.db.models import EvalRunRequest, EvalRunResponse
-from app.eval.runner import run_retrieval_eval
+from app.db.models import (
+    AnswerFeedbackRequest,
+    AnswerFeedbackResponse,
+    EvalResultsResponse,
+    EvalRunRequest,
+    EvalRunResponse,
+)
+from app.eval.runner import load_eval_runs, run_retrieval_eval, save_answer_feedback
 
 
 router = APIRouter(prefix="/eval", tags=["eval"])
@@ -14,3 +20,13 @@ async def run_eval(payload: EvalRunRequest) -> EvalRunResponse:
         top_k=payload.top_k,
         cases=payload.cases,
     )
+
+
+@router.get("/results", response_model=EvalResultsResponse)
+async def get_eval_results(limit: int = Query(20, ge=1, le=100)) -> EvalResultsResponse:
+    return load_eval_runs(limit=limit)
+
+
+@router.post("/feedback", response_model=AnswerFeedbackResponse)
+async def save_feedback(payload: AnswerFeedbackRequest) -> AnswerFeedbackResponse:
+    return save_answer_feedback(payload)

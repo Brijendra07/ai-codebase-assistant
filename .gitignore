@@ -9,3 +9,4 @@ dist/
 build/
 *.pyc
 local_docs/
+data/eval/*.jsonl

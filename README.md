@@ -107,6 +107,8 @@ If `.env` is missing, the app still works in fallback answer mode.
 - `POST /query/cleanup-candidates`
 - `POST /query/compare-retrieval`
 - `POST /eval/run`
+- `GET /eval/results`
+- `POST /eval/feedback`
 
 `POST /query/search` and `POST /query/ask` also support optional metadata-aware filters:
 
