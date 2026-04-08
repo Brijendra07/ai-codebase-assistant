@@ -62,6 +62,7 @@ Personal planning and CV files are kept in `local_docs/`, which is gitignored.
 - metadata-aware retrieval and lightweight hybrid reranking
 - grounded Q&A with citations
 - LangChain-powered prompt templating and output parsing in the LLM layer
+- LlamaIndex-powered alternate retrieval path for side-by-side RAG comparison
 - Vertex AI / Gemini-backed answer generation with fallback mode
 - agent workflows:
   - explain flow
@@ -81,6 +82,7 @@ Personal planning and CV files are kept in `local_docs/`, which is gitignored.
 - sentence-transformers
 - FAISS
 - LangChain Core
+- LlamaIndex
 - Google Vertex AI / Gemini
 - Pydantic
 - Docker
@@ -190,6 +192,8 @@ If `.env` is missing, the app still works in fallback answer mode.
 - `POST /repos/embed`
 - `POST /query/search`
 - `POST /query/ask`
+- `POST /query/search-llamaindex`
+- `POST /query/ask-llamaindex`
 - `POST /query/explain-flow`
 - `POST /query/compare-files`
 - `POST /query/trace-symbol`

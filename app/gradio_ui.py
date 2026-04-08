@@ -13,7 +13,11 @@ from app.db.models import (
     RetrievalSettings,
 )
 from app.eval.runner import load_eval_runs, run_retrieval_eval, save_answer_feedback
-from app.retrieval.retriever import answer_repository_question, index_repository_embeddings
+from app.retrieval.retriever import (
+    answer_repository_question,
+    answer_repository_question_llamaindex,
+    index_repository_embeddings,
+)
 
 
 def _pretty(data) -> str:
@@ -63,6 +67,25 @@ def explain_flow(
             chunk_types=chunk_types or None,
             file_path_contains=file_path_contains or None,
         ),
+    )
+    return _pretty(response)
+
+
+def ask_repo_llamaindex(
+    repo_path: str,
+    question: str,
+    top_k: int,
+    language: str,
+    chunk_types: list[str],
+    file_path_contains: str,
+) -> str:
+    response = answer_repository_question_llamaindex(
+        repo_path=repo_path,
+        question=question,
+        top_k=top_k,
+        language=language or None,
+        chunk_types=chunk_types or None,
+        file_path_contains=file_path_contains or None,
     )
     return _pretty(response)
 
@@ -165,6 +188,32 @@ def build_demo() -> gr.Blocks:
                     ask_path_filter,
                 ],
                 outputs=[ask_output],
+            )
+
+        with gr.Tab("Ask (LlamaIndex)"):
+            ask_li_repo_path = gr.Textbox(label="Repository Path", value="D:\\AI Codebase Assistant")
+            ask_li_question = gr.Textbox(label="Question", value="Where is repository ingestion implemented?")
+            ask_li_top_k = gr.Slider(label="Top K", minimum=1, maximum=20, value=5, step=1)
+            ask_li_language = gr.Textbox(label="Language Filter", value="python")
+            ask_li_chunk_types = gr.CheckboxGroup(
+                label="Chunk Types",
+                choices=["function", "class", "block"],
+                value=["function", "class"],
+            )
+            ask_li_path_filter = gr.Textbox(label="File Path Contains", value="ingestion")
+            ask_li_button = gr.Button("Ask with LlamaIndex", variant="primary")
+            ask_li_output = gr.Code(label="Ask LlamaIndex Response", language="json")
+            ask_li_button.click(
+                ask_repo_llamaindex,
+                inputs=[
+                    ask_li_repo_path,
+                    ask_li_question,
+                    ask_li_top_k,
+                    ask_li_language,
+                    ask_li_chunk_types,
+                    ask_li_path_filter,
+                ],
+                outputs=[ask_li_output],
             )
 
         with gr.Tab("Explain Flow"):

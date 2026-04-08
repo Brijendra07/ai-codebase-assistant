@@ -86,6 +86,7 @@ class SemanticSearchResponse(BaseModel):
     repo_path: str
     query: str
     top_k: int
+    retrieval_backend: str
     retrieval_settings: RetrievalSettings
     latency_ms: float
     total_results: int
@@ -193,6 +194,7 @@ class AskResponse(BaseModel):
     answer: str
     grounded: bool
     answer_mode: str
+    retrieval_backend: str
     retrieval_settings: RetrievalSettings
     retrieval_latency_ms: float
     generation_latency_ms: float

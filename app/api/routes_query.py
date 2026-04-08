@@ -24,8 +24,10 @@ from app.db.models import (
 )
 from app.retrieval.retriever import (
     answer_repository_question,
+    answer_repository_question_llamaindex,
     compare_retrieval_strategies,
     semantic_search,
+    semantic_search_llamaindex,
 )
 
 
@@ -47,6 +49,30 @@ async def search_repository(payload: SemanticSearchRequest) -> SemanticSearchRes
 @router.post("/ask", response_model=AskResponse)
 async def ask_repository(payload: AskRequest) -> AskResponse:
     return answer_repository_question(
+        repo_path=payload.repo_path,
+        question=payload.question,
+        top_k=payload.top_k,
+        language=payload.language,
+        chunk_types=payload.chunk_types,
+        file_path_contains=payload.file_path_contains,
+    )
+
+
+@router.post("/search-llamaindex", response_model=SemanticSearchResponse)
+async def search_repository_llamaindex(payload: SemanticSearchRequest) -> SemanticSearchResponse:
+    return semantic_search_llamaindex(
+        repo_path=payload.repo_path,
+        query=payload.query,
+        top_k=payload.top_k,
+        language=payload.language,
+        chunk_types=payload.chunk_types,
+        file_path_contains=payload.file_path_contains,
+    )
+
+
+@router.post("/ask-llamaindex", response_model=AskResponse)
+async def ask_repository_llamaindex(payload: AskRequest) -> AskResponse:
+    return answer_repository_question_llamaindex(
         repo_path=payload.repo_path,
         question=payload.question,
         top_k=payload.top_k,

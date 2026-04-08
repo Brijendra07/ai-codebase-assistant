@@ -39,6 +39,7 @@ def explain_flow_workflow(
         repo_path=repo_path,
         question=question,
         results=results,
+        retrieval_backend="faiss",
         retrieval_settings=retrieval_settings,
         retrieval_latency_ms=retrieval_latency_ms,
     )

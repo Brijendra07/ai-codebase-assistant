@@ -27,6 +27,7 @@ from app.ingestion.parser import parse_file
 from app.ingestion.repo_loader import list_repository_files
 from app.llm.answer_generator import generate_grounded_answer
 from app.retrieval.hybrid_search import apply_metadata_filters, rerank_results
+from app.retrieval.llamaindex_store import get_or_build_llamaindex_index, search_llamaindex_index
 
 logger = get_logger(__name__)
 
@@ -94,6 +95,7 @@ def semantic_search(
         repo_path=stored_index.repo_path,
         query=query,
         top_k=top_k,
+        retrieval_backend=stored_index.backend,
         retrieval_settings=_build_retrieval_settings(top_k, language, chunk_types, file_path_contains),
         latency_ms=_elapsed_ms(started_at),
         total_results=len(matches),
@@ -128,6 +130,68 @@ def answer_repository_question(
         repo_path=stored_index.repo_path,
         question=question,
         results=search_results,
+        retrieval_backend=stored_index.backend,
+        retrieval_settings=_build_retrieval_settings(top_k, language, chunk_types, file_path_contains),
+        retrieval_latency_ms=retrieval_latency_ms,
+    )
+
+
+def semantic_search_llamaindex(
+    repo_path: str,
+    query: str,
+    top_k: int,
+    language: str | None = None,
+    chunk_types: list[str] | None = None,
+    file_path_contains: str | None = None,
+) -> SemanticSearchResponse:
+    started_at = time.perf_counter()
+    stored_index, matches = _retrieve_matches_llamaindex(
+        repo_path,
+        query,
+        top_k,
+        language=language,
+        chunk_types=chunk_types,
+        file_path_contains=file_path_contains,
+    )
+
+    return SemanticSearchResponse(
+        repo_name=stored_index.repo_name,
+        repo_path=stored_index.repo_path,
+        query=query,
+        top_k=top_k,
+        retrieval_backend=stored_index.backend,
+        retrieval_settings=_build_retrieval_settings(top_k, language, chunk_types, file_path_contains),
+        latency_ms=_elapsed_ms(started_at),
+        total_results=len(matches),
+        results=[SearchResult(score=score, chunk=chunk) for chunk, score in matches],
+    )
+
+
+def answer_repository_question_llamaindex(
+    repo_path: str,
+    question: str,
+    top_k: int,
+    language: str | None = None,
+    chunk_types: list[str] | None = None,
+    file_path_contains: str | None = None,
+) -> AskResponse:
+    retrieval_started_at = time.perf_counter()
+    stored_index, matches = _retrieve_matches_llamaindex(
+        repo_path,
+        question,
+        top_k,
+        language=language,
+        chunk_types=chunk_types,
+        file_path_contains=file_path_contains,
+    )
+    retrieval_latency_ms = _elapsed_ms(retrieval_started_at)
+    search_results = [SearchResult(score=score, chunk=chunk) for chunk, score in matches]
+    return generate_grounded_answer(
+        repo_name=stored_index.repo_name,
+        repo_path=stored_index.repo_path,
+        question=question,
+        results=search_results,
+        retrieval_backend=stored_index.backend,
         retrieval_settings=_build_retrieval_settings(top_k, language, chunk_types, file_path_contains),
         retrieval_latency_ms=retrieval_latency_ms,
     )
@@ -158,6 +222,14 @@ def compare_retrieval_strategies(
         filtered_matches if filtered_matches else raw_matches,
         top_k,
     )
+    llama_index, llama_matches = _retrieve_matches_llamaindex(
+        repo_path,
+        query,
+        top_k,
+        language=language,
+        chunk_types=chunk_types,
+        file_path_contains=file_path_contains,
+    )
 
     return RetrievalComparisonResponse(
         repo_name=stored_index.repo_name,
@@ -170,6 +242,7 @@ def compare_retrieval_strategies(
             _build_stage("semantic_raw", raw_matches[:top_k]),
             _build_stage("metadata_filtered", filtered_matches[:top_k]),
             _build_stage("reranked_final", reranked_matches),
+            _build_stage(llama_index.backend, llama_matches),
         ],
     )
 
@@ -197,6 +270,43 @@ def _retrieve_matches(
     matches = rerank_results(query, matches, top_k)
     logger.info(
         "retrieval_run query=%r top_k=%s language=%s chunk_types=%s file_path_contains=%s results=%s",
+        query,
+        top_k,
+        language,
+        chunk_types,
+        file_path_contains,
+        len(matches),
+    )
+    return stored_index, matches
+
+
+def _retrieve_matches_llamaindex(
+    repo_path: str,
+    query: str,
+    top_k: int,
+    language: str | None = None,
+    chunk_types: list[str] | None = None,
+    file_path_contains: str | None = None,
+):
+    base_index = _get_stored_index(repo_path)
+    stored_index = get_or_build_llamaindex_index(
+        repo_path=base_index.repo_path,
+        repo_name=base_index.repo_name,
+        chunks=base_index.chunks,
+    )
+    candidate_count = min(max(top_k * 8, top_k), len(stored_index.chunks))
+    matches = search_llamaindex_index(stored_index, query, candidate_count)
+    matches = apply_metadata_filters(
+        matches,
+        language=language,
+        chunk_types=chunk_types,
+        file_path_contains=file_path_contains,
+    )
+    if not matches:
+        matches = search_llamaindex_index(stored_index, query, candidate_count)
+    matches = rerank_results(query, matches, top_k)
+    logger.info(
+        "retrieval_run_llamaindex query=%r top_k=%s language=%s chunk_types=%s file_path_contains=%s results=%s",
         query,
         top_k,
         language,
