@@ -64,6 +64,7 @@ Personal planning and CV files are kept in `local_docs/`, which is gitignored.
 - LangChain-powered prompt templating and output parsing in the LLM layer
 - LlamaIndex-powered alternate retrieval path for side-by-side RAG comparison
 - Vertex AI / Gemini-backed answer generation with fallback mode
+- Gradio UI for visual testing and demos across repository workflows
 - agent workflows:
   - explain flow
   - compare files
@@ -85,6 +86,7 @@ Personal planning and CV files are kept in `local_docs/`, which is gitignored.
 - LlamaIndex
 - Google Vertex AI / Gemini
 - Pydantic
+- Gradio
 - Docker
 
 ## Local Setup
@@ -131,6 +133,21 @@ python -m app.gradio_ui
 Then open:
 
 - `http://127.0.0.1:7860`
+
+The Gradio app currently includes tabs for:
+
+- embedding a repository
+- asking grounded questions with the custom FAISS path
+- asking grounded questions with the LlamaIndex path
+- comparing custom vs LlamaIndex RAG side by side
+- explaining repository flows
+- comparing files
+- tracing symbol references
+- reviewing cleanup candidates
+- running evaluation and viewing history
+- saving answer feedback
+
+Note: the Gradio UI runs on port `7860`, while FastAPI Swagger remains on `http://127.0.0.1:8000/docs`.
 
 ## LLM Setup
 
@@ -220,6 +237,18 @@ The project currently supports:
 - generation latency tracking
 - comparison of raw vs filtered vs reranked retrieval
 
+## RAG Comparison Findings
+
+The project now includes two grounded answer paths:
+
+- a custom FAISS-based retrieval pipeline
+- a LlamaIndex-based alternate retrieval pipeline
+
+In local testing on the same repository question, both paths returned correct grounded answers with citations, but the custom FAISS path was significantly faster than the LlamaIndex path. This gives the project a strong comparison story:
+
+- the custom path is faster and more controllable
+- the framework path is useful for demonstrating ecosystem familiarity and alternate RAG abstractions
+
 ## Roadmap Status
 
 - Phase 0: complete
@@ -228,17 +257,6 @@ The project currently supports:
 - Phase 3: complete
 - Phase 4: complete
 - Phase 5: complete
-- Phase 6: planned
+- Phase 6: complete
 
 This means the current project scope is portfolio-ready and covers the roadmap end to end.
-
-## Next Extension
-
-The next planned extension is a lightweight Gradio UI for:
-
-- asking repository questions in a more natural interface
-- running explain-flow, compare-files, trace-symbol, and cleanup workflows visually
-- reviewing eval history and outputs more easily
-- making demos and manual testing faster than Swagger alone
-
-This UI phase is intended to strengthen testing, demos, screenshots, and overall portfolio presentation without changing the completed backend roadmap phases.

@@ -26,6 +26,67 @@ def _pretty(data) -> str:
     return json.dumps(data, indent=2, ensure_ascii=False)
 
 
+def _format_citations(citations: list[dict]) -> str:
+    if not citations:
+        return "- None"
+
+    lines: list[str] = []
+    for citation in citations:
+        symbol = f" ({citation['symbol_name']})" if citation.get("symbol_name") else ""
+        lines.append(
+            f"- `{citation['file_path']}:{citation['start_line']}-{citation['end_line']}` "
+            f"[{citation['chunk_type']}{symbol}]"
+        )
+    return "\n".join(lines)
+
+
+def _format_answer_card(title: str, response_data: dict) -> str:
+    return (
+        f"### {title}\n"
+        f"- Retrieval backend: `{response_data['retrieval_backend']}`\n"
+        f"- Answer mode: `{response_data['answer_mode']}`\n"
+        f"- Retrieval latency: `{response_data['retrieval_latency_ms']} ms`\n"
+        f"- Generation latency: `{response_data['generation_latency_ms']} ms`\n"
+        f"- Total latency: `{response_data['latency_ms']} ms`\n\n"
+        f"**Answer**\n\n{response_data['answer']}\n\n"
+        f"**Citations**\n{_format_citations(response_data['citations'])}"
+    )
+
+
+def _build_comparison_summary(custom_response, llamaindex_response) -> dict:
+    custom_data = custom_response.model_dump(mode="json")
+    llamaindex_data = llamaindex_response.model_dump(mode="json")
+    return {
+        "question": custom_data["question"],
+        "custom_backend": {
+            "retrieval_backend": custom_data["retrieval_backend"],
+            "answer_mode": custom_data["answer_mode"],
+            "retrieval_latency_ms": custom_data["retrieval_latency_ms"],
+            "generation_latency_ms": custom_data["generation_latency_ms"],
+            "latency_ms": custom_data["latency_ms"],
+            "citations": custom_data["citations"],
+            "answer": custom_data["answer"],
+        },
+        "llamaindex_backend": {
+            "retrieval_backend": llamaindex_data["retrieval_backend"],
+            "answer_mode": llamaindex_data["answer_mode"],
+            "retrieval_latency_ms": llamaindex_data["retrieval_latency_ms"],
+            "generation_latency_ms": llamaindex_data["generation_latency_ms"],
+            "latency_ms": llamaindex_data["latency_ms"],
+            "citations": llamaindex_data["citations"],
+            "answer": llamaindex_data["answer"],
+        },
+        "latency_delta_ms": round(
+            llamaindex_data["latency_ms"] - custom_data["latency_ms"],
+            2,
+        ),
+    }
+
+
+def _build_ask_markdown(response_data: dict) -> str:
+    return _format_answer_card("Answer Summary", response_data)
+
+
 def embed_repo(repo_path: str) -> str:
     response = index_repository_embeddings(repo_path)
     return _pretty(response)
@@ -38,7 +99,7 @@ def ask_repo(
     language: str,
     chunk_types: list[str],
     file_path_contains: str,
-) -> str:
+) -> tuple[str, str]:
     response = answer_repository_question(
         repo_path=repo_path,
         question=question,
@@ -47,7 +108,8 @@ def ask_repo(
         chunk_types=chunk_types or None,
         file_path_contains=file_path_contains or None,
     )
-    return _pretty(response)
+    response_data = response.model_dump(mode="json")
+    return _build_ask_markdown(response_data), _pretty(response_data)
 
 
 def explain_flow(
@@ -57,7 +119,7 @@ def explain_flow(
     language: str,
     chunk_types: list[str],
     file_path_contains: str,
-) -> str:
+) -> tuple[str, str]:
     response = run_explain_flow(
         repo_path=repo_path,
         question=question,
@@ -68,7 +130,17 @@ def explain_flow(
             file_path_contains=file_path_contains or None,
         ),
     )
-    return _pretty(response)
+    response_data = response.model_dump(mode="json")
+    markdown = (
+        f"### Flow Summary\n"
+        f"- Answer mode: `{response_data['answer_mode']}`\n"
+        f"- Retrieval latency: `{response_data['retrieval_latency_ms']} ms`\n"
+        f"- Generation latency: `{response_data['generation_latency_ms']} ms`\n"
+        f"- Total latency: `{response_data['latency_ms']} ms`\n\n"
+        f"{response_data['flow_summary']}\n\n"
+        f"**Citations**\n{_format_citations(response_data['citations'])}"
+    )
+    return markdown, _pretty(response_data)
 
 
 def ask_repo_llamaindex(
@@ -78,7 +150,7 @@ def ask_repo_llamaindex(
     language: str,
     chunk_types: list[str],
     file_path_contains: str,
-) -> str:
+) -> tuple[str, str]:
     response = answer_repository_question_llamaindex(
         repo_path=repo_path,
         question=question,
@@ -87,7 +159,45 @@ def ask_repo_llamaindex(
         chunk_types=chunk_types or None,
         file_path_contains=file_path_contains or None,
     )
-    return _pretty(response)
+    response_data = response.model_dump(mode="json")
+    return _build_ask_markdown(response_data), _pretty(response_data)
+
+
+def compare_rag_backends(
+    repo_path: str,
+    question: str,
+    top_k: int,
+    language: str,
+    chunk_types: list[str],
+    file_path_contains: str,
+) -> tuple[str, str]:
+    custom_response = answer_repository_question(
+        repo_path=repo_path,
+        question=question,
+        top_k=top_k,
+        language=language or None,
+        chunk_types=chunk_types or None,
+        file_path_contains=file_path_contains or None,
+    )
+    llamaindex_response = answer_repository_question_llamaindex(
+        repo_path=repo_path,
+        question=question,
+        top_k=top_k,
+        language=language or None,
+        chunk_types=chunk_types or None,
+        file_path_contains=file_path_contains or None,
+    )
+    comparison = _build_comparison_summary(custom_response, llamaindex_response)
+    faster_backend = "custom FAISS" if comparison["latency_delta_ms"] > 0 else "LlamaIndex"
+    markdown = (
+        "## RAG Backend Comparison\n"
+        f"- Question: `{comparison['question']}`\n"
+        f"- Faster backend: `{faster_backend}`\n"
+        f"- Latency delta: `{comparison['latency_delta_ms']} ms`\n\n"
+        f"{_format_answer_card('Custom Backend', comparison['custom_backend'])}\n\n"
+        f"{_format_answer_card('LlamaIndex Backend', comparison['llamaindex_backend'])}"
+    )
+    return markdown, _pretty(comparison)
 
 
 def compare_files(repo_path: str, file_path_a: str, file_path_b: str) -> str:
@@ -176,7 +286,8 @@ def build_demo() -> gr.Blocks:
             )
             ask_path_filter = gr.Textbox(label="File Path Contains", value="ingestion")
             ask_button = gr.Button("Ask", variant="primary")
-            ask_output = gr.Code(label="Ask Response", language="json")
+            ask_summary = gr.Markdown(label="Ask Summary")
+            ask_output = gr.Code(label="Ask Raw JSON", language="json")
             ask_button.click(
                 ask_repo,
                 inputs=[
@@ -187,7 +298,7 @@ def build_demo() -> gr.Blocks:
                     ask_chunk_types,
                     ask_path_filter,
                 ],
-                outputs=[ask_output],
+                outputs=[ask_summary, ask_output],
             )
 
         with gr.Tab("Ask (LlamaIndex)"):
@@ -202,7 +313,8 @@ def build_demo() -> gr.Blocks:
             )
             ask_li_path_filter = gr.Textbox(label="File Path Contains", value="ingestion")
             ask_li_button = gr.Button("Ask with LlamaIndex", variant="primary")
-            ask_li_output = gr.Code(label="Ask LlamaIndex Response", language="json")
+            ask_li_summary = gr.Markdown(label="Ask LlamaIndex Summary")
+            ask_li_output = gr.Code(label="Ask LlamaIndex Raw JSON", language="json")
             ask_li_button.click(
                 ask_repo_llamaindex,
                 inputs=[
@@ -213,7 +325,34 @@ def build_demo() -> gr.Blocks:
                     ask_li_chunk_types,
                     ask_li_path_filter,
                 ],
-                outputs=[ask_li_output],
+                outputs=[ask_li_summary, ask_li_output],
+            )
+
+        with gr.Tab("Compare RAG"):
+            compare_rag_repo_path = gr.Textbox(label="Repository Path", value="D:\\AI Codebase Assistant")
+            compare_rag_question = gr.Textbox(label="Question", value="Where is repository ingestion implemented?")
+            compare_rag_top_k = gr.Slider(label="Top K", minimum=1, maximum=20, value=5, step=1)
+            compare_rag_language = gr.Textbox(label="Language Filter", value="python")
+            compare_rag_chunk_types = gr.CheckboxGroup(
+                label="Chunk Types",
+                choices=["function", "class", "block"],
+                value=["function", "class"],
+            )
+            compare_rag_path_filter = gr.Textbox(label="File Path Contains", value="ingestion")
+            compare_rag_button = gr.Button("Compare Custom vs LlamaIndex", variant="primary")
+            compare_rag_summary = gr.Markdown(label="Comparison Summary")
+            compare_rag_output = gr.Code(label="RAG Comparison Raw JSON", language="json")
+            compare_rag_button.click(
+                compare_rag_backends,
+                inputs=[
+                    compare_rag_repo_path,
+                    compare_rag_question,
+                    compare_rag_top_k,
+                    compare_rag_language,
+                    compare_rag_chunk_types,
+                    compare_rag_path_filter,
+                ],
+                outputs=[compare_rag_summary, compare_rag_output],
             )
 
         with gr.Tab("Explain Flow"):
@@ -228,7 +367,8 @@ def build_demo() -> gr.Blocks:
             )
             flow_path_filter = gr.Textbox(label="File Path Contains", value="ingestion")
             flow_button = gr.Button("Explain Flow", variant="primary")
-            flow_output = gr.Code(label="Explain Flow Response", language="json")
+            flow_summary_output = gr.Markdown(label="Explain Flow Summary")
+            flow_output = gr.Code(label="Explain Flow Raw JSON", language="json")
             flow_button.click(
                 explain_flow,
                 inputs=[
@@ -239,7 +379,7 @@ def build_demo() -> gr.Blocks:
                     flow_chunk_types,
                     flow_path_filter,
                 ],
-                outputs=[flow_output],
+                outputs=[flow_summary_output, flow_output],
             )
 
         with gr.Tab("Compare Files"):
