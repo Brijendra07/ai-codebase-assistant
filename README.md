@@ -49,10 +49,6 @@ app/
 requirements.txt
 ```
 
-## Local Notes
-
-Personal planning and CV files are kept in `local_docs/`, which is gitignored.
-
 ## Features
 
 - local repository ingestion with filtering rules
@@ -169,9 +165,9 @@ GEMINI_API_KEY=your_gemini_api_key_here
 
 If `.env` is missing, the app still works in fallback answer mode.
 
-## Sample Workflow
+## Example Requests
 
-1. Embed the repository:
+Embed the repository:
 
 ```json
 {
@@ -179,7 +175,7 @@ If `.env` is missing, the app still works in fallback answer mode.
 }
 ```
 
-2. Ask a grounded question:
+Ask a grounded question:
 
 ```json
 {
@@ -192,7 +188,20 @@ If `.env` is missing, the app still works in fallback answer mode.
 }
 ```
 
-3. Run evaluation:
+Ask with the alternate LlamaIndex retrieval path:
+
+```json
+{
+  "repo_path": "D:\\AI Codebase Assistant",
+  "question": "Where is repository ingestion implemented?",
+  "top_k": 5,
+  "language": "python",
+  "chunk_types": ["function", "class"],
+  "file_path_contains": "ingestion"
+}
+```
+
+Run evaluation:
 
 ```json
 {
@@ -249,14 +258,7 @@ In local testing on the same repository question, both paths returned correct gr
 - the custom path is faster and more controllable
 - the framework path is useful for demonstrating ecosystem familiarity and alternate RAG abstractions
 
-## Roadmap Status
+## Notes
 
-- Phase 0: complete
-- Phase 1: complete
-- Phase 2: complete
-- Phase 3: complete
-- Phase 4: complete
-- Phase 5: complete
-- Phase 6: complete
-
-This means the current project scope is portfolio-ready and covers the roadmap end to end.
+- runtime data such as eval history and feedback is stored under `data/`
+- local personal planning files are not part of the tracked project content
