@@ -61,6 +61,7 @@ Personal planning and CV files are kept in `local_docs/`, which is gitignored.
 - vector indexing with FAISS
 - metadata-aware retrieval and lightweight hybrid reranking
 - grounded Q&A with citations
+- LangChain-powered prompt templating and output parsing in the LLM layer
 - Vertex AI / Gemini-backed answer generation with fallback mode
 - agent workflows:
   - explain flow
@@ -79,6 +80,7 @@ Personal planning and CV files are kept in `local_docs/`, which is gitignored.
 - FastAPI
 - sentence-transformers
 - FAISS
+- LangChain Core
 - Google Vertex AI / Gemini
 - Pydantic
 - Docker

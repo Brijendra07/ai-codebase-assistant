@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 import httpx
 from app.core.config import settings
 from app.db.models import AskResponse, CitationRecord, RetrievalSettings, SearchResult
-from app.llm.prompts import build_grounded_answer_prompt
+from app.llm.prompts import build_grounded_answer_prompt, parse_answer_text
 
 try:
     from google import genai
@@ -61,7 +61,7 @@ def generate_grounded_answer(
                 question=question,
                 answer=answer,
                 grounded=True,
-                answer_mode="llm",
+                answer_mode="llm-langchain",
                 retrieval_settings=retrieval_settings,
                 retrieval_latency_ms=retrieval_latency_ms,
                 generation_latency_ms=_elapsed_ms(started_at),
@@ -80,7 +80,7 @@ def generate_grounded_answer(
                 question=question,
                 answer=answer,
                 grounded=True,
-                answer_mode="llm",
+                answer_mode="llm-langchain",
                 retrieval_settings=retrieval_settings,
                 retrieval_latency_ms=retrieval_latency_ms,
                 generation_latency_ms=_elapsed_ms(started_at),
@@ -127,7 +127,7 @@ def _generate_with_gemini(question: str, results: list[SearchResult]) -> str:
         model=settings.llm_model_name,
         contents=prompt,
     )
-    response_text = (getattr(response, "text", None) or "").strip()
+    response_text = parse_answer_text(getattr(response, "text", None) or "")
     return response_text or _generate_fallback_answer(question, results)
 
 
@@ -162,7 +162,7 @@ def _generate_with_vertex(question: str, results: list[SearchResult]) -> str:
         return _generate_fallback_answer(question, results)
 
     parts = candidates[0].get("content", {}).get("parts", [])
-    text = "".join(part.get("text", "") for part in parts).strip()
+    text = parse_answer_text("".join(part.get("text", "") for part in parts))
     return text or _generate_fallback_answer(question, results)
 
 
