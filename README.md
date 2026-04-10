@@ -60,6 +60,7 @@ requirements.txt
 - LangChain-powered prompt templating and output parsing in the LLM layer
 - LlamaIndex-powered alternate retrieval path for side-by-side RAG comparison
 - Vertex AI / Gemini-backed answer generation with fallback mode
+- React UI for a premium operator-style repository intelligence workspace
 - Gradio UI for visual testing and demos across repository workflows
 - agent workflows:
   - explain flow
@@ -82,6 +83,8 @@ requirements.txt
 - LlamaIndex
 - Google Vertex AI / Gemini
 - Pydantic
+- React
+- Vite
 - Gradio
 - Docker
 
@@ -104,6 +107,35 @@ uvicorn app.main:app --reload
 
 - `http://127.0.0.1:8000/health`
 - `http://127.0.0.1:8000/docs`
+
+## React UI
+
+The project now includes a React + Vite frontend for a cleaner interactive experience on top of the FastAPI backend.
+
+Frontend capabilities include:
+
+- grounded repository Q&A
+- custom FAISS vs LlamaIndex backend comparison
+- flow analysis
+- file comparison
+- symbol tracing
+- cleanup review
+- eval execution and telemetry inspection
+- raw JSON inspection for API responses
+
+To run the React UI:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Then open:
+
+- `http://localhost:5173`
+
+The React frontend talks to FastAPI on `http://127.0.0.1:8000`, and the backend already includes CORS support for the Vite dev server.
 
 ## Docker Run
 
@@ -143,7 +175,11 @@ The Gradio app currently includes tabs for:
 - running evaluation and viewing history
 - saving answer feedback
 
-Note: the Gradio UI runs on port `7860`, while FastAPI Swagger remains on `http://127.0.0.1:8000/docs`.
+Note:
+
+- React UI runs on `http://localhost:5173`
+- Gradio UI runs on `http://127.0.0.1:7860`
+- FastAPI Swagger remains on `http://127.0.0.1:8000/docs`
 
 ## LLM Setup
 
@@ -262,3 +298,4 @@ In local testing on the same repository question, both paths returned correct gr
 
 - runtime data such as eval history and feedback is stored under `data/`
 - local personal planning files are not part of the tracked project content
+- frontend dependency and build output directories are ignored via `.gitignore`
